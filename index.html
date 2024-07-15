@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Simple Chatbot Interface</title>
+        <style>
+            body {
+                font-family: Arial, sans-serif;
+                max-width: 800px;
+                margin: 0 auto;
+                padding: 20px;
+            }
+            #chatBox {
+                height: 300px;
+                border: 1px solid #ccc;
+                overflow-y: auto;
+                padding: 10px;
+                margin-bottom: 10px;
+            }
+            #userInput {
+                width: 70%;
+                padding: 5px;
+            }
+            button {
+                padding: 5px 10px;
+            }
+        </style>
+    </head>
+    <body>
+        <h1>Simple Chatbot Interface</h1>
+
+        <div>
+            <input type="text" id="botId" placeholder="Enter Bot ID" />
+            <button onclick="createChat()">Create Chat</button>
+        </div>
+
+        <div id="chatBox"></div>
+
+        <div>
+            <input
+                type="text"
+                id="userInput"
+                placeholder="Type your message here..."
+            />
+            <button onclick="sendMessage()">Send</button>
+        </div>
+
+        <script>
+            let currentChatId = null;
+
+            async function fetchAPI(endpoint, method = "POST", body = null) {
+                const options = {
+                    method: method,
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                };
+                if (body) options.body = JSON.stringify(body);
+
+                const response = await fetch(endpoint, options);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return await response.json();
+            }
+
+            function addMessageToChat(sender, message) {
+                const chatBox = document.getElementById("chatBox");
+                chatBox.innerHTML += `<p><strong>${sender}:</strong> ${message}</p>`;
+                chatBox.scrollTop = chatBox.scrollHeight;
+            }
+
+            async function createChat() {
+                const botId = document.getElementById("botId").value;
+                if (!botId) {
+                    alert("Please enter a Bot ID");
+                    return;
+                }
+                try {
+                    const result = await fetchAPI("/api/chats/create/bybotcode", "POST", {
+                        bot_id: botId,
+                    });
+                    currentChatId = result.chat_id;
+                    addMessageToChat(
+                        "System",
+                        `Chat created with ID: ${currentChatId}`
+                    );
+                } catch (error) {
+                    addMessageToChat("Error", error.message);
+                }
+            }
+
+            async function sendMessage() {
+                if (!currentChatId) {
+                    alert("Please create a chat first");
+                    return;
+                }
+                const userInput = document.getElementById("userInput");
+                const message = userInput.value;
+                if (!message) return;
+
+                addMessageToChat("You", message);
+                userInput.value = "";
+
+                try {
+                    const result = await fetchAPI(
+                        `/api/chats/${currentChatId}/completions`,
+                        "POST",
+                        { message: message }
+                    );
+                    addMessageToChat("Bot", result.assistant_message);
+                } catch (error) {
+                    addMessageToChat("Error", error.message);
+                }
+            }
+
+            // Allow sending message with Enter key
+            document
+                .getElementById("userInput")
+                .addEventListener("keypress", function (e) {
+                    if (e.key === "Enter") {
+                        sendMessage();
+                    }
+                });
+        </script>
+    </body>
+</html>
